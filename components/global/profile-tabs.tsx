@@ -51,7 +51,11 @@ export default function ProfileTabs({
   const currentUserId = userDetails.id;
   const currentUserName = userDetails.name;
 
-  const { setSnippets } = useContext(SearchContext);
+  const { snippets, setSnippets } = useContext(SearchContext);
+
+  const [bookmarkedSnippets, setBookmarkedSnippets] = useState<Snippet[]>(
+    profileData.bookmarked,
+  );
 
   const tabVariants = {
     hidden: { opacity: 0, x: -10 },
@@ -62,6 +66,10 @@ export default function ProfileTabs({
   useEffect(() => {
     Prism.highlightAll();
   }, [activeTab]);
+
+  useEffect(() => {
+    setBookmarkedSnippets(profileData.bookmarked);
+  }, [profileData.bookmarked]);
 
   return (
     <Tabs defaultValue="submitted" className="space-y-4">
@@ -115,11 +123,12 @@ export default function ProfileTabs({
           transition={{ duration: 0.3 }}
         >
           <h2 className="text-xl font-semibold">Bookmarked Snippets</h2>
-          {profileData.bookmarked.length > 0 ? (
+          {bookmarkedSnippets.length > 0 ? (
             renderBookmarkedSnippetList(
               profileData.bookmarked,
               currentUserId,
               setSnippets,
+              setBookmarkedSnippets,
             )
           ) : (
             <SkeletonCard type="bookmarked" />
@@ -329,6 +338,7 @@ const renderBookmarkedSnippetList = (
   snippets: Snippet[],
   currentUserId: string,
   setSnippets: any,
+  setBookmarkedSnippets: any,
 ) => (
   <div className="space-y-4">
     {snippets.map((snippet) => {
@@ -344,18 +354,34 @@ const renderBookmarkedSnippetList = (
 
           const updatedSnippet = await response.json();
           // Update your state or UI accordingly
-          setSnippets(
-            snippets.map((snippet) =>
+          setSnippets((prevSnippets: Snippet[]) =>
+            prevSnippets.map((snippet) =>
               snippet._id === updatedSnippet._id ? updatedSnippet : snippet,
             ),
           );
 
           // Show success toast message
           if (updatedSnippet.bookmarkedBy.includes(currentUserId)) {
-            toast.success("Snippet bookmarked");
+            setBookmarkedSnippets((prev: Snippet[]) =>
+              prev.find((snippet) => snippet._id === updatedSnippet._id)
+                ? prev.map((snippet) =>
+                    snippet._id === updatedSnippet._id
+                      ? updatedSnippet
+                      : snippet,
+                  )
+                : [...prev, updatedSnippet],
+            );
           } else {
-            toast.success("Bookmark removed");
+            setBookmarkedSnippets((prev: Snippet[]) =>
+              prev.filter((snippet) => snippet._id !== updatedSnippet._id),
+            );
           }
+
+          toast.success(
+            updatedSnippet.bookmarkedBy.includes(currentUserId)
+              ? "Snippet bookmarked"
+              : "Bookmark removed",
+          );
         } catch (error) {
           console.error("Error toggling bookmark:", error);
           toast.error("Error toggling bookmark");
